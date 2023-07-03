@@ -5,7 +5,7 @@ module Rack
     class Throttle
       MANDATORY_OPTIONS = [:limit, :period].freeze
 
-      attr_reader :name, :limit, :period, :block, :type
+      attr_reader :name, :limit, :period, :block, :type, :enforced
 
       def initialize(name, options, &block)
         @name = name
@@ -16,6 +16,7 @@ module Rack
         @limit = options[:limit]
         @period = options[:period].respond_to?(:call) ? options[:period] : options[:period].to_i
         @type   = options.fetch(:type, :throttle)
+        @enforced = options.fetch(:enforced, -> { true })
       end
 
       def cache
@@ -44,7 +45,10 @@ module Rack
             annotate_request_with_matched_data(request, data)
             Rack::Attack.instrument(request)
           end
-        end
+        end && enforced.call()
+        # Checks if the result of throttling should be enforced
+        # This is used to measure traffic without users being throttled.
+        # This value will be set in Rails application, so it will be dynamic
       end
 
       private
